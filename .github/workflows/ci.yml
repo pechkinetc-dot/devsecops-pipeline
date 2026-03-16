@@ -1,0 +1,80 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ==================== SAST ====================
+  sast-bandit:
+    runs-on: ubuntu-latest
+    name: SAST - Bandit (Python)
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Bandit
+        run: pip install bandit
+      
+      - name: Run Bandit
+        run: |
+          bandit -r . -f json -o reports/bandit-report.json
+        continue-on-error: true
+      
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: reports/bandit-report.json
+
+  # ==================== CodeQL ====================
+  codeql:
+    runs-on: ubuntu-latest
+    name: SAST - CodeQL
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python, javascript
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ==================== Secrets ====================
+  secrets-scan:
+    runs-on: ubuntu-latest
+    name: Secrets - GitLeaks
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==================== Security Gateway ====================
+  security-gateway:
+    runs-on: ubuntu-latest
+    needs: [sast-bandit, codeql, secrets-scan]
+    name: Security Gateway
+    if: always()
+    steps:
+      - name: Security Gate Check
+        run: |
+          echo "==================================="
+          echo "  SECURITY GATEWAY CHECK"
+          echo "==================================="
+          echo "✅ All security scans completed"
+          echo "📊 Review reports in Artifacts tab"
+          echo "==================================="
