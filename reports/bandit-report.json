@@ -1,0 +1,10 @@
+{
+  "issues": [
+    {
+      "issue_severity": "MEDIUM",
+      "issue_text": "Test vulnerability",
+      "file": "test.py",
+      "line_number": 10
+    }
+  ]
+}
